@@ -193,7 +193,6 @@ contract Market is ReentrancyGuard{
         MyPurchasedItems,
         ActiveItems
     }
-    // 返回MyCreatedItems， 这个是我创建的，看文章不会管经过二次买卖的，只要是我创建的都归类过来，然后在卖的话，会把buyer置为0
     // 不搞那么复杂，先这样吧
     // 这里的逻辑是，active，返回所有active的，
     function fetchActiveItems(
