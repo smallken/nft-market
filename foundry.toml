@@ -4,4 +4,11 @@ out = "out"
 libs = ["lib"]
 gas_reports = ["Market", "MarketReport"]
 
+[rpc_endpoints]
+#goerli = "${GOERLI_RPC_URL}"
+bsctest = "${BSC_TEST_RPC_URL}"
+[etherscan]
+#goerli = { key = "${ETHERSCAN_API_KEY}" }
+#bsctest = "${BSC_TEST_RPC_URL}"
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
