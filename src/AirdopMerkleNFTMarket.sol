@@ -6,10 +6,12 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "src/MyNFT.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Test, console} from "../lib/openzeppelin-contracts/lib/forge-std/src/Test.sol";
+import {MerkleTreeAirDrop} from "src/MerkleTreeAirDrop.sol";
 
 contract AirdopMerkleNFTMarket is Multicall{
     address token;
     address nftAddress;
+    address merTree;
 
     struct NftRecord {
         address nftTokenAddress;
@@ -20,11 +22,13 @@ contract AirdopMerkleNFTMarket is Multicall{
     }
     NftRecord[] nftsNotaked;
     NftRecord[] nftstaked;
-    constructor (address _token, address _nftAddress, NftRecord[] memory _nfts) {
+    constructor (address _token, address _nftAddress, address merkleTreeAirDrop,  NftRecord[] memory _nfts) {
         token = _token;
         nftAddress = _nftAddress;
         // nftsNotoaked = _nfts;
+        merTree = merkleTreeAirDrop;
         copyNft(_nfts);
+
     }
 
     event NFTClaimed(
@@ -47,8 +51,9 @@ contract AirdopMerkleNFTMarket is Multicall{
         IERC20Permit(token).permit(owner, spender, 100, deadline, v, r, s);
     }
 
-    function claimNFT(address nftTaker) public {
+    function claimNFT(address nftTaker,bytes32[] calldata _merkleProof) public {
         // 校验白名单略
+        MerkleTreeAirDrop(merTree).whitelistMint(_merkleProof, nftTaker);
         // 直接使⽤ permitPrePay 的授权，转⼊ 100 token， 并转出 NFT .
         require(IERC20(token).transferFrom(nftTaker, nftAddress, 100), "transf failed");
         // 这个思路是，把nft放到一个数组里面，如果

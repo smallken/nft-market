@@ -269,12 +269,13 @@ contract Market is ReentrancyGuard{
     }
 
     // 新增multicall,问题是如果新增的话， 是不是直接在market合约增加？这样合约要升级的。
-    function buyNFTWithAirdrop(address nftTaker, address spender, uint256 deadline,
-    uint8 v,bytes32 r,bytes32 s) public {
+    function buyNFTWithAirdrop(address nftTaker, address spender, bytes32[] calldata _merkleProof,
+    uint256 deadline,uint8 v,bytes32 r,bytes32 s) public {
         bytes[] memory call = new bytes[](2);
         call[0] = abi.encodeWithSelector(AirdopMerkleNFTMarket(airdrop).permitPrePay.selector, 
         nftTaker, spender, deadline, v, r, s);
-        call[1] = abi.encodeWithSelector(AirdopMerkleNFTMarket(airdrop).claimNFT.selector, nftTaker);
+        call[1] = abi.encodeWithSelector(AirdopMerkleNFTMarket(airdrop).claimNFT.selector,
+         nftTaker,_merkleProof);
         AirdopMerkleNFTMarket(airdrop).multicall(call);
     }
 }
