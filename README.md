@@ -255,6 +255,7 @@ contract MarketScript is Script {
 
 `.env`
 
+<img src="/Users/mac/Documents/学习资料/登链社区区块链教程/OpenSpace线下学习/学习总结笔记/photo/image-20240828114359720.png" alt="image-20240828114359720" style="zoom:50%;" />
 
 `foundry.toml`
 
@@ -339,6 +340,7 @@ to                      0xfdcd…3524
 
 在这里查看交易历史：https://testnet.bscscan.com/
 
+<img src="/Users/mac/Documents/学习资料/登链社区区块链教程/OpenSpace线下学习/学习总结笔记/photo/image-20240828114717863.png" alt="image-20240828114717863" style="zoom:50%;" />
 
 #### 7.1 脚本部署问题：无合约代码
 
@@ -372,7 +374,7 @@ error: the following required arguments were not provided:
 Usage: forge create --rpc-url <URL> --private-key <RAW_PRIVATE_KEY> --constructor-args <ARGS>... <CONTRACT>
 ```
 
-部署market的时候报上面错误，这样就行：
+部署market的时候报上面错误，把--constructor-args放前面就行：
 
 `forge create --rpc-url $BSC_TEST_RPC_URL --constructor-args 0x66590317CbEF0a42728064878b3b2f907733aB63 --p
 rivate-key $BSC_PRIVATE_KEY ./src/Market.sol:Market `
@@ -515,4 +517,112 @@ transactionIndex        65
 type                    0
 to                      0x689f…82e5
 ```
+
+
+
+
+
+### 9. 新增签名授权转账，白名单（默克尔树），multicall
+
+1. 测试；
+
+   `forge test --match-test testBuyNFTWithAirdrop -vvvv`
+
+   ```
+   Running 1 test for test/Market.t.sol:TestMarket
+   [PASS] testBuyNFTWithAirdrop() (gas: 274896)
+   Logs:
+     copyNFT, times: 0
+     copyNFT, times: 1
+     copyNFT, times: 2
+     token balance address1: 10000000
+   
+   Traces:
+     [274896] TestMarket::testBuyNFTWithAirdrop()
+       ├─ [0] VM::startPrank(0x0376AAc07Ad725E01357B1725B5ceC61aE10473c)
+       │   └─ ← ()
+       ├─ [2563] MyToken::balanceOf(0x0376AAc07Ad725E01357B1725B5ceC61aE10473c) [staticcall]
+       │   └─ ← 10000000 [1e7]
+       ├─ [0] console::log("token balance address1:", 10000000 [1e7]) [staticcall]
+       │   └─ ← ()
+       ├─ [3307] SigUtils::getTypedDataHash(Permit({ owner: 0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, spender: 0x4e2958b9682A516020581D381a776ee0232Ffe8a, value: 100, nonce: 0, deadline: 86401 [8.64e4] })) [staticcall]
+       │   └─ ← 0xccb9062d7bbc4a9c7f0dff151ad901c4c9b43765f319836f86e33b39d17baccf
+       ├─ [0] VM::sign(2827, 0xccb9062d7bbc4a9c7f0dff151ad901c4c9b43765f319836f86e33b39d17baccf) [staticcall]
+       │   └─ ← 28, 0x11c3f24f4106729c5e348eae9a18714d2f713f2b339a86d01862e0b21c7f6762, 0x75a4c769525feb56a1ad4b1795bcfc21c491d6fcf49bb7ae7db1d36e6adb6984
+       ├─ [54654] AirdopMerkleNFTMarket::permitPrePay(0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, AirdopMerkleNFTMarket: [0x4e2958b9682A516020581D381a776ee0232Ffe8a], 86401 [8.64e4], 28, 0x11c3f24f4106729c5e348eae9a18714d2f713f2b339a86d01862e0b21c7f6762, 0x75a4c769525feb56a1ad4b1795bcfc21c491d6fcf49bb7ae7db1d36e6adb6984)
+       │   ├─ [51484] MyToken::permit(0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, AirdopMerkleNFTMarket: [0x4e2958b9682A516020581D381a776ee0232Ffe8a], 100, 86401 [8.64e4], 28, 0x11c3f24f4106729c5e348eae9a18714d2f713f2b339a86d01862e0b21c7f6762, 0x75a4c769525feb56a1ad4b1795bcfc21c491d6fcf49bb7ae7db1d36e6adb6984)
+       │   │   ├─ [3000] PRECOMPILES::ecrecover(0xccb9062d7bbc4a9c7f0dff151ad901c4c9b43765f319836f86e33b39d17baccf, 28, 8035525962846974955719379202791074398317335858750846892766247569290671646562, 53211742489858300667034990264133638789998699522138864784591914614506544392580) [staticcall]
+       │   │   │   └─ ← 0x0000000000000000000000000376aac07ad725e01357b1725b5cec61ae10473c
+       │   │   ├─ emit Approval(owner: 0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, spender: AirdopMerkleNFTMarket: [0x4e2958b9682A516020581D381a776ee0232Ffe8a], value: 100)
+       │   │   └─ ← ()
+       │   └─ ← ()
+       ├─ [814] MyToken::allowance(0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, AirdopMerkleNFTMarket: [0x4e2958b9682A516020581D381a776ee0232Ffe8a]) [staticcall]
+       │   └─ ← 100
+       ├─ [218333] AirdopMerkleNFTMarket::claimNFT(0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, [0xcfc42f28608f55d154a718c604f767a905e8abe69db3c43ac9148b62bc354f5d, 0x528ec4302eea6221220ebeae9f37ef81215fb615a508d4e7e665a7746edd06a1, 0x61078cfb32f020ffc6202a24b0ebe2f4e461ff6e162d22f5f0bc738951a72818])
+       │   ├─ [26234] MerkleTreeAirDrop::whitelistMint([0xcfc42f28608f55d154a718c604f767a905e8abe69db3c43ac9148b62bc354f5d, 0x528ec4302eea6221220ebeae9f37ef81215fb615a508d4e7e665a7746edd06a1, 0x61078cfb32f020ffc6202a24b0ebe2f4e461ff6e162d22f5f0bc738951a72818], 0x0376AAc07Ad725E01357B1725B5ceC61aE10473c)
+       │   │   └─ ← ()
+       │   ├─ [28840] MyToken::transferFrom(0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, MyNFT: [0xCF75462c9e7fFf4eEB0c50185087a0fb9A056d2b], 100)
+       │   │   ├─ emit Transfer(from: 0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, to: MyNFT: [0xCF75462c9e7fFf4eEB0c50185087a0fb9A056d2b], value: 100)
+       │   │   └─ ← true
+       │   ├─ [40251] MyNFT::transferFrom(0xe05fcC23807536bEe418f142D19fa0d21BB0cfF7, 0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, 2)
+       │   │   ├─ emit Transfer(from: 0xe05fcC23807536bEe418f142D19fa0d21BB0cfF7, to: 0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, tokenId: 2)
+       │   │   └─ ← ()
+       │   ├─ emit NFTClaimed(nftRecordNum: 0, tokenId: 2, taker: 0x0376AAc07Ad725E01357B1725B5ceC61aE10473c)
+       │   └─ ← ()
+       ├─ [0] VM::stopPrank()
+       │   └─ ← ()
+       └─ ← ()
+   
+   Test result: ok. 1 passed; 0 failed; 0 skipped; finished in 29.83ms
+   ```
+
+2. 测试multicall;
+
+   `forge test --match-test testBuywithMulticall -vvvv`
+
+   ```
+   PASS] testBuywithMulticall() (gas: 283294)
+   Logs:
+     copyNFT, times: 0
+     copyNFT, times: 1
+     copyNFT, times: 2
+   
+   Traces:
+     [283294] TestMarket::testBuywithMulticall()
+       ├─ [0] VM::startPrank(0x0376AAc07Ad725E01357B1725B5ceC61aE10473c)
+       │   └─ ← ()
+       ├─ [3307] SigUtils::getTypedDataHash(Permit({ owner: 0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, spender: 0x4e2958b9682A516020581D381a776ee0232Ffe8a, value: 100, nonce: 0, deadline: 86401 [8.64e4] })) [staticcall]
+       │   └─ ← 0xccb9062d7bbc4a9c7f0dff151ad901c4c9b43765f319836f86e33b39d17baccf
+       ├─ [0] VM::sign(2827, 0xccb9062d7bbc4a9c7f0dff151ad901c4c9b43765f319836f86e33b39d17baccf) [staticcall]
+       │   └─ ← 28, 0x11c3f24f4106729c5e348eae9a18714d2f713f2b339a86d01862e0b21c7f6762, 0x75a4c769525feb56a1ad4b1795bcfc21c491d6fcf49bb7ae7db1d36e6adb6984
+       ├─ [292221] Market::buyNFTWithAirdrop(0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, AirdopMerkleNFTMarket: [0x4e2958b9682A516020581D381a776ee0232Ffe8a], [0xcfc42f28608f55d154a718c604f767a905e8abe69db3c43ac9148b62bc354f5d, 0x528ec4302eea6221220ebeae9f37ef81215fb615a508d4e7e665a7746edd06a1, 0x61078cfb32f020ffc6202a24b0ebe2f4e461ff6e162d22f5f0bc738951a72818], 86401 [8.64e4], 28, 0x11c3f24f4106729c5e348eae9a18714d2f713f2b339a86d01862e0b21c7f6762, 0x75a4c769525feb56a1ad4b1795bcfc21c491d6fcf49bb7ae7db1d36e6adb6984)
+       │   ├─ [282397] AirdopMerkleNFTMarket::multicall([0xd66bb9e80000000000000000000000000376aac07ad725e01357b1725b5cec61ae10473c0000000000000000000000004e2958b9682a516020581d381a776ee0232ffe8a0000000000000000000000000000000000000000000000000000000000015181000000000000000000000000000000000000000000000000000000000000001c11c3f24f4106729c5e348eae9a18714d2f713f2b339a86d01862e0b21c7f676275a4c769525feb56a1ad4b1795bcfc21c491d6fcf49bb7ae7db1d36e6adb6984, 0xb67f313e0000000000000000000000000376aac07ad725e01357b1725b5cec61ae10473c00000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003cfc42f28608f55d154a718c604f767a905e8abe69db3c43ac9148b62bc354f5d528ec4302eea6221220ebeae9f37ef81215fb615a508d4e7e665a7746edd06a161078cfb32f020ffc6202a24b0ebe2f4e461ff6e162d22f5f0bc738951a72818])
+       │   │   ├─ [57154] AirdopMerkleNFTMarket::permitPrePay(0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, AirdopMerkleNFTMarket: [0x4e2958b9682A516020581D381a776ee0232Ffe8a], 86401 [8.64e4], 28, 0x11c3f24f4106729c5e348eae9a18714d2f713f2b339a86d01862e0b21c7f6762, 0x75a4c769525feb56a1ad4b1795bcfc21c491d6fcf49bb7ae7db1d36e6adb6984) [delegatecall]
+       │   │   │   ├─ [51484] MyToken::permit(0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, AirdopMerkleNFTMarket: [0x4e2958b9682A516020581D381a776ee0232Ffe8a], 100, 86401 [8.64e4], 28, 0x11c3f24f4106729c5e348eae9a18714d2f713f2b339a86d01862e0b21c7f6762, 0x75a4c769525feb56a1ad4b1795bcfc21c491d6fcf49bb7ae7db1d36e6adb6984)
+       │   │   │   │   ├─ [3000] PRECOMPILES::ecrecover(0xccb9062d7bbc4a9c7f0dff151ad901c4c9b43765f319836f86e33b39d17baccf, 28, 8035525962846974955719379202791074398317335858750846892766247569290671646562, 53211742489858300667034990264133638789998699522138864784591914614506544392580) [staticcall]
+       │   │   │   │   │   └─ ← 0x0000000000000000000000000376aac07ad725e01357b1725b5cec61ae10473c
+       │   │   │   │   ├─ emit Approval(owner: 0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, spender: AirdopMerkleNFTMarket: [0x4e2958b9682A516020581D381a776ee0232Ffe8a], value: 100)
+       │   │   │   │   └─ ← ()
+       │   │   │   └─ ← ()
+       │   │   ├─ [220333] AirdopMerkleNFTMarket::claimNFT(0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, [0xcfc42f28608f55d154a718c604f767a905e8abe69db3c43ac9148b62bc354f5d, 0x528ec4302eea6221220ebeae9f37ef81215fb615a508d4e7e665a7746edd06a1, 0x61078cfb32f020ffc6202a24b0ebe2f4e461ff6e162d22f5f0bc738951a72818]) [delegatecall]
+       │   │   │   ├─ [26234] MerkleTreeAirDrop::whitelistMint([0xcfc42f28608f55d154a718c604f767a905e8abe69db3c43ac9148b62bc354f5d, 0x528ec4302eea6221220ebeae9f37ef81215fb615a508d4e7e665a7746edd06a1, 0x61078cfb32f020ffc6202a24b0ebe2f4e461ff6e162d22f5f0bc738951a72818], 0x0376AAc07Ad725E01357B1725B5ceC61aE10473c)
+       │   │   │   │   └─ ← ()
+       │   │   │   ├─ [30840] MyToken::transferFrom(0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, MyNFT: [0xCF75462c9e7fFf4eEB0c50185087a0fb9A056d2b], 100)
+       │   │   │   │   ├─ emit Transfer(from: 0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, to: MyNFT: [0xCF75462c9e7fFf4eEB0c50185087a0fb9A056d2b], value: 100)
+       │   │   │   │   └─ ← true
+       │   │   │   ├─ [40251] MyNFT::transferFrom(0xe05fcC23807536bEe418f142D19fa0d21BB0cfF7, 0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, 2)
+       │   │   │   │   ├─ emit Transfer(from: 0xe05fcC23807536bEe418f142D19fa0d21BB0cfF7, to: 0x0376AAc07Ad725E01357B1725B5ceC61aE10473c, tokenId: 2)
+       │   │   │   │   └─ ← ()
+       │   │   │   ├─ emit NFTClaimed(nftRecordNum: 0, tokenId: 2, taker: 0x0376AAc07Ad725E01357B1725B5ceC61aE10473c)
+       │   │   │   └─ ← ()
+       │   │   └─ ← [0x, 0x]
+       │   └─ ← ()
+       ├─ [0] VM::stopPrank()
+       │   └─ ← ()
+       └─ ← ()
+   
+   Test result: ok. 1 passed; 0 failed; 0 skipped; finished in 50.42ms
+   ```
+
+   
 
