@@ -15,11 +15,11 @@ contract MarketScript is Script {
         // NFT nft = new NFT("NFT_tutorial", "TUT", "baseUri");
         // 0x5FbDB2315678afecb367f032d93F642f64180aa3
         MyNFT nft = new MyNFT();
-        Market market = new Market(address(nft));
-        console.log("nft:");
-        console.log(address(nft));
-        console.log("market:");
-        console.log(address(market));
+        // Market market = new Market(address(nft));
+        // console.log("nft:");
+        // console.log(address(nft));
+        // console.log("market:");
+        // console.log(address(market));
         
         vm.stopBroadcast();
     }

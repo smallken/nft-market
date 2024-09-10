@@ -6,6 +6,7 @@ import {EIP712} from "lib/openzeppelin-contracts/contracts/utils/cryptography/EI
 import {ECDSA} from "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 // import {Nonces} from "lib/openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {ReentrancyGuard} from "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import { AirdopMerkleNFTMarket } from "src/AirdopMerkleNFTMarket.sol";
 interface IMyERC721 {
     function safeTransferFrom(address, address, uint256) external;
     function ownerOf(uint) external returns (address);
@@ -19,6 +20,8 @@ contract Market is ReentrancyGuard{
     Counters.Counter private _itemCounter; //start from 1
     Counters.Counter private _itemSoldCounter;
     address public myNFT;
+    address public token;
+    address public airdrop;
     address payable public immutable marketowner;
     enum State {
         Created,
@@ -64,9 +67,11 @@ contract Market is ReentrancyGuard{
 
     error ERC2612InvalidSigner(address signer, address owner);
 
-    constructor(address _myNFT) {
+    constructor(address _myNFT, address _token, address _airdrop) {
         myNFT = _myNFT;
         marketowner = payable(msg.sender);
+        token = _token;
+        airdrop = _airdrop;
     }
     // 1. 上架， 上架后要加入事件。
     function onList(
@@ -261,5 +266,15 @@ contract Market is ReentrancyGuard{
         ItemStatus _itemStatus
     ) public view returns (MarketItem[] memory) {
         return fetchItems(_itemStatus);
+    }
+
+    // 新增multicall,问题是如果新增的话， 是不是直接在market合约增加？这样合约要升级的。
+    function buyNFTWithAirdrop(address nftTaker, address spender, uint256 deadline,
+    uint8 v,bytes32 r,bytes32 s) public {
+        bytes[] memory call = new bytes[](2);
+        call[0] = abi.encodeWithSelector(AirdopMerkleNFTMarket(airdrop).permitPrePay.selector, 
+        nftTaker, spender, deadline, v, r, s);
+        call[1] = abi.encodeWithSelector(AirdopMerkleNFTMarket(airdrop).claimNFT.selector, nftTaker);
+        AirdopMerkleNFTMarket(airdrop).multicall(call);
     }
 }

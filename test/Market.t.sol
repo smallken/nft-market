@@ -3,6 +3,11 @@ pragma solidity ^0.8.13;
 import {Test, console} from "../lib/openzeppelin-contracts/lib/forge-std/src/Test.sol";
 import { Market } from "../src/Market.sol";
 import { MyNFT } from "../src/MyNFT.sol";
+import {MyToken} from "../src/MyToken.sol";
+import { AirdopMerkleNFTMarket } from "../src/AirdopMerkleNFTMarket.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {SigUtils} from "../src/libraries/SigUtils.sol";
+
 // import { MyToken } from "../MyToken.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 
@@ -11,34 +16,130 @@ contract TestMarket is Test{
     // 初始化
     MyNFT myNFT;
     Market market;
+    MyToken token;
+    AirdopMerkleNFTMarket airdrop;
+    SigUtils sigUtils;
+
     // MyToken token;
     uint itemId ;
     uint256 public listingFee = 0.0025 ether;
     address nftOwner = address(1);
-    // enum State {Created, Release, Inactive }
-    // struct MarketItem {
-    //     uint id;
-    //     address contractAddr;
-    //     uint tokenID;
-    //     uint price;
-    //     address seller;
-    //     address payable buyer;
-    //     State state;
-    // }
-
+    AirdopMerkleNFTMarket.NftRecord[] public nfts;
+    uint256 internal ownerPrivateKey;
+    uint256 internal spenderPrivateKey;
+    address internal owner;
+    address internal spender;
+   
     function setUp() public {
         // vm.startPrank(address(1));
-        vm.startPrank(address(1));
+        ownerPrivateKey = 0xA11CE;
+        spenderPrivateKey = 0xB0B;
+        owner = vm.addr(ownerPrivateKey);
+        spender = vm.addr(spenderPrivateKey);
+        vm.deal(owner, 5 ether);
+        vm.startPrank(owner);
         myNFT = new MyNFT();
-        market = new Market(address(myNFT));
+        token = new MyToken();
+        token.transfer(spender, 10000000);
+        sigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
+        //nftRecord[] memory _nfts
+        // myNFT.mint();
+
+        uint id1 = myNFT.mint(owner, "ipfs://QmWzNBw5YQCEQ8WovNDEGtkxwrAkHcqkzoSZTFw5XAo13T");
+        uint id2 = myNFT.mint(owner, "ipfs://QmWzNBw5YQCEQ8WovNDEGtkxwrAkHcqkzoSZTFw5XAo13T");
+        uint id3 = myNFT.mint(owner, "ipfs://QmWzNBw5YQCEQ8WovNDEGtkxwrAkHcqkzoSZTFw5XAo13T");
+        /**
+         * struct nftRecord {
+        address nftTokenAddress;
+        uint tokenId;
+        address owner;
+        bool ifTaked;
+         */
+        // uint[] memory arrs=new uint[](3);
+        AirdopMerkleNFTMarket.NftRecord memory nft1 = AirdopMerkleNFTMarket.NftRecord({
+             nftTokenAddress:address(myNFT),
+             tokenId: id1,
+             owner: owner,
+             ifTaked: false
+        });
+        nfts.push(nft1);
+        AirdopMerkleNFTMarket.NftRecord memory nft2 = AirdopMerkleNFTMarket.NftRecord({
+             nftTokenAddress:address(myNFT),
+             tokenId: id2,
+             owner: owner,
+             ifTaked: false
+        });
+        nfts.push(nft2);
+        AirdopMerkleNFTMarket.NftRecord memory nft3 = AirdopMerkleNFTMarket.NftRecord({
+             nftTokenAddress:address(myNFT),
+             tokenId: id3,
+             owner: owner,
+             ifTaked: false
+        });
+        nfts.push(nft3);
+        // nfts[0] = nft1;
+        
+        airdrop = new AirdopMerkleNFTMarket(address(token), address(myNFT),nfts);
+        market = new Market(address(myNFT),address(token), address(airdrop));
+        myNFT.setApprovalForAll(address(airdrop), true);
         // token = new MyToken();
         vm.stopPrank();
-        vm.startPrank(address(3));
-        uint id = myNFT.mint(address(3), "ipfs://QmWzNBw5YQCEQ8WovNDEGtkxwrAkHcqkzoSZTFw5XAo13T");
-        myNFT.approve(address(market), id);
-        vm.deal(address(3),1 ether);
-        itemId = market.onList{value: 0.0025 ether}(address(myNFT), itemId, 0.1 ether);
-        console.log("set function market balance",address(market).balance);
+        // vm.startPrank(address(3));
+        // uint id = myNFT.mint(address(3), "ipfs://QmWzNBw5YQCEQ8WovNDEGtkxwrAkHcqkzoSZTFw5XAo13T");
+        // myNFT.approve(address(market), id);
+        // vm.deal(address(3),1 ether);
+        // itemId = market.onList{value: 0.0025 ether}(address(myNFT), itemId, 0.1 ether);
+        // console.log("set function market balance",address(market).balance);
+        // vm.stopPrank();
+    }
+
+    function testBuyNFTWithAirdrop() public{
+        vm.startPrank(spender);
+        console.log("token balance address1:", token.balanceOf(spender));
+        // 这个Permit的测试
+        SigUtils.Permit memory permit = SigUtils.Permit({
+            owner: spender,
+            spender: address(airdrop),
+            value: 100,
+            nonce: 0,
+            deadline: block.timestamp + 1 days
+        });
+        bytes32 digest = sigUtils.getTypedDataHash(permit);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(spenderPrivateKey, digest);
+        // token.permit(permit.owner, permit.spender, permit.value, permit.deadline, v, r, s);
+        airdrop.permitPrePay(spender, address(airdrop), block.timestamp + 1 days, v, r, s);
+        assertEq(token.allowance(spender, address(airdrop)),100);
+        // vm.stopPrank();
+        // vm.startPrank(address(1));
+        airdrop.claimNFT(spender);
+
+        vm.stopPrank();
+    }
+
+/**
+ * function buyNFTWithAirdrop(address owner, address spender, uint256 deadline,
+    uint8 v,bytes32 r,bytes32 s) public {
+        bytes[] memory call;
+        call[0] = abi.encodeWithSelector(AirdopMerkleNFTMarket(airdrop).permitPrePay.selector, 
+        owner, spender, deadline, v, r, s);
+        call[1] = abi.encodeWithSelector(AirdopMerkleNFTMarket(airdrop).claimNFT.selector, msg.sender);
+        AirdopMerkleNFTMarket(airdrop).multicall(call);
+    }
+ */
+    function testBuywithMulticall() public {
+         vm.startPrank(spender);
+        // console.log("token balance address1:", token.balanceOf(spender));
+        // 这个Permit的测试
+        SigUtils.Permit memory permit = SigUtils.Permit({
+            owner: spender,
+            spender: address(airdrop),
+            value: 100,
+            nonce: 0,
+            deadline: block.timestamp + 1 days
+        });
+        bytes32 digest = sigUtils.getTypedDataHash(permit);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(spenderPrivateKey, digest);
+        market.buyNFTWithAirdrop(spender, address(airdrop), block.timestamp + 1 days, v, r, s);
         vm.stopPrank();
     }
     

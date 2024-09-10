@@ -13,13 +13,13 @@ contract MyNFT is ERC721URIStorage, Nonces{
     uint256 tokenId
    );
 
-    function mint(address student, string memory tokenURI) public returns (uint256) {
+    function mint(address receiver, string memory tokenURI) public returns (uint256) {
         // _tokenIds.increment();
         uint256 newItemId = tokenId++;
         // uint256 newItemId = nonces(address(this));
-        _mint(student, newItemId);
+        _mint(receiver, newItemId);
         _setTokenURI(newItemId, tokenURI);
-        emit Mint(student, newItemId);
+        emit Mint(receiver, newItemId);
         return newItemId;
     }
     //nft:
