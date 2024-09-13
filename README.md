@@ -626,3 +626,57 @@ to                      0x689f…82e5
 
    
 
+### 10. 测试预言机
+
+安装依赖: `forge install smartcontractkit/chainlink --no-commit`
+
+重新生成映射：`forge remmaping > remappings.txt`
+
+合约：
+
+```
+pragma solidity ^0.8.13;
+
+import {Test, console} from "../lib/openzeppelin-contracts/lib/forge-std/src/Test.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+                                    // lib/chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol
+
+
+contract TestLink {
+    // BTC-USD: 0x5741306c21795FdCBb9b265Ea0255F499DFe515C
+    AggregatorV3Interface internal priceFeed;
+    constructor() {
+        priceFeed = AggregatorV3Interface(
+            0x5741306c21795FdCBb9b265Ea0255F499DFe515C
+        );
+    }
+
+    function getLatestPrice() public view returns (int) {
+        // prettier-ignore
+        (
+            /* uint80 roundID */,
+            int price,
+            /*uint startedAt*/,
+            /*uint timeStamp*/,
+            /*uint80 answeredInRound*/
+        ) = priceFeed.latestRoundData();
+        return price;
+    }
+
+}
+```
+
+部署：
+
+```
+forge create ./src/TestLink.sol:TestLink --rpc-url https://data-seed-prebsc-1-s1.binance.org:8545/ --private-key 1cd56ac413c6078f836c7b6ca96d923ae58ec3bc0cb213ff58c37ce39e362794
+```
+
+获取数据：
+
+`cast call --rpc-url https://data-seed-prebsc-1-s1.binance.org:8545/  0x4a22e7a3C59569c463f6c8dA74e5b59b978e6e88 "getLatestPrice()(int)"`
+
+`5805221100000 [5.805e12]`
+
+获取数据成功。
+
