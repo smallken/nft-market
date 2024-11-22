@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/utils/Address.sol";
 // lib/openzeppelin-contracts/contracts/
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {Test, console2} from "forge-std/Test.sol";
+
 // 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 // privateKey: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 /**
@@ -34,5 +36,9 @@ contract MyToken is ERC20Permit {
             require(rv, "No tokensReceived");
         }
         return true;
+    }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
     }
 }

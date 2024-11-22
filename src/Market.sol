@@ -83,6 +83,7 @@ contract Market is ReentrancyGuard{
         require(msg.value == listingFee, "Fee must be equal to listing fee");
         require(_price > 0, "Price must be at least 1 wei ");
         // approver要为当前的合约
+        // 感觉这里有点问题，没有地方授权的
         require(
             IERC721(_contractAddr).getApproved(_tokenID) == address(this),
             "NFT must be approved to market"
