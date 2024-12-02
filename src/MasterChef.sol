@@ -85,7 +85,9 @@ contract MasterChef is Ownable, ReentrancyGuard {
         uint256 newReward = (tokenReward * 1e12);
         require(newReward / 1e12 == tokenReward, "Overflow in reward calculation");
         require(ethBalance != 0, "Division by zero");
+        // 本来tokenReward是1e18,1e18除以1e18,可能会丧失精度
         accEthPerShare = accEthPerShare + (newReward / ethBalance);
+        console2.log("ethBalance:", ethBalance / 1e18);
         console2.log("accEthPerSharea: %s", accEthPerShare / 1e12);
         console2.log("lastRewardBlock: %s", lastRewardBlock / 1e12);
         lastRewardBlock = block.number;
@@ -93,7 +95,10 @@ contract MasterChef is Ownable, ReentrancyGuard {
 
     // Deposit LP tokens to MasterChef for SUSHI allocation.
     function deposit(uint256 _amount) public payable{
+        // 结构体就可以这样操作，如果映射有，就获取地址对应的映射；没有就创建这样的映射，并创建结构体，赋默认的值。
         UserInfo storage user = userInfo[msg.sender];
+        console2.log("user:", user.userAddr);
+        console2.log("user amount:", user.amount / 1e18);
         require(msg.value > 0, "deposit: no eth");
         if ( user.userAddr == address(0)) {
             user.userAddr = msg.sender;
@@ -110,6 +115,8 @@ contract MasterChef is Ownable, ReentrancyGuard {
         user.amount = user.amount + _amount;
         user.rewardDebt = user.amount * accEthPerShare / 1e12 ;
         console2.log("user.rewardDebt: %s", user.rewardDebt / 1e18);
+        console2.log("after deposit user amount:", user.amount / 1e18);
+        console2.log("adfer deposit user addr:", user.userAddr);
         emit Deposit(msg.sender, _amount);
     }
 

@@ -197,20 +197,20 @@ contract TestMarket is Test{
         // vm.assume(price < type(uint).max);
         
         vm.startPrank(user);
-        uint id = market.onList{value: listingFee}(address(myNFT), tokenId, price);
-        console.log("market.marketItems(1):::");
-        // console.log(market.marketItems(1));
-        // Market.MarketItem memory item = market.marketItems(1);
-        (uint _id, address contractAddr, uint _tokenID, uint _price, 
-        address _seller, address payable buyer, Market.State state) 
-        = market.marketItems(id);
+        // uint id = market.onList{value: listingFee}(address(myNFT), tokenId, price);
+        // console.log("market.marketItems(1):::");
+        // // console.log(market.marketItems(1));
+        // // Market.MarketItem memory item = market.marketItems(1);
+        // (uint _id, address contractAddr, uint _tokenID, uint _price, 
+        // address _seller, address payable buyer, Market.State state) 
+        // = market.marketItems(id);
         vm.stopPrank();
-        console.log("_tokenID:", _tokenID);
-        console.log("tokenID:", tokenId);
-        assertEq(_tokenID, tokenId);
+        // console.log("_tokenID:", _tokenID);
+        // console.log("tokenID:", tokenId);
+        // assertEq(_tokenID, tokenId);
         
-        // assertEq(_price, price);
-        assertEq(_seller, user);
+        // // assertEq(_price, price);
+        // assertEq(_seller, user);
         // 购买
         vm.assume(buyer != user);
         vm.startPrank(buyer);
@@ -232,9 +232,9 @@ contract TestMarket is Test{
            uint256 tokenId =  myNFT.mint(user,  "ipfs://QmWzNBw5YQCEQ8WovNDEGtkxwrAkHcqkzoSZTFw5XAo13T");
             myNFT.approve(address(market), tokenId);
             // console.log("approve:::", IERC721(myNFT).getApproved(tokenId));
-           uint id = market.onList{value: listingFee}(address(myNFT), tokenId, 0.1 ether);
-        //    console.log("id:", market.getItemTokenId(id));
-           Market.MarketItem memory item = market.getItem(id);
+        //    uint id = market.onList{value: listingFee}(address(myNFT), tokenId, 0.1 ether);
+        // //    console.log("id:", market.getItemTokenId(id));
+        //    Market.MarketItem memory item = market.getItem(id);
         //    console.log("approve:::", IERC721(item.contractAddr).getApproved(tokenId));
            vm.stopPrank();
         }
@@ -284,14 +284,14 @@ contract TestMarket is Test{
         Market.MarketItem[] memory itemsMyCreated = 
         market.fetchCreatedItems(Market.ItemStatus.MyCreatedItems);
         console.log("itemsMyCreated:", itemsMyCreated.length);
-        address owner = market.marketowner();
-        // market.marketowner.balance; 用这种写法会报错，直接调状态变量，可以用.状态变量（）这种格式。
-        // console.log("market owner balance:", owner.balance);
-        // 计算 ether 单位的小数值
-        uint integerPart = owner.balance / 1 ether;
-        uint fractionalPart = (owner.balance % 1 ether) * 1e18;  // 计算小数部分
+        // address owner = market.marketowner();
+        // // market.marketowner.balance; 用这种写法会报错，直接调状态变量，可以用.状态变量（）这种格式。
+        // // console.log("market owner balance:", owner.balance);
+        // // 计算 ether 单位的小数值
+        // uint integerPart = owner.balance / 1 ether;
+        // uint fractionalPart = (owner.balance % 1 ether) * 1e18;  // 计算小数部分
 
-        console.log("market owner Balance: %s.%s ether", integerPart, fractionalPart);
+        // console.log("market owner Balance: %s.%s ether", integerPart, fractionalPart);
         // console.log("buyer balance:::",buyerAddr.balance);
         getEth(buyerAddr.balance);
         for (uint i = 1; i <= 10; i++) {

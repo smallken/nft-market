@@ -7,6 +7,7 @@ import {ECDSA} from "lib/openzeppelin-contracts/contracts/utils/cryptography/ECD
 // import {Nonces} from "lib/openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {ReentrancyGuard} from "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import { AirdopMerkleNFTMarket } from "src/AirdopMerkleNFTMarket.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 interface IMyERC721 {
     function safeTransferFrom(address, address, uint256) external;
     function ownerOf(uint) external returns (address);
@@ -36,6 +37,7 @@ contract Market is ReentrancyGuard{
         address seller;
         address payable buyer;
         State state;
+        uint amount;
     }
     // items映射
     // 应该是前端从这里扫出来，然后再放到页面上去
@@ -48,7 +50,8 @@ contract Market is ReentrancyGuard{
         uint price,
         address seller,
         address buyer,
-        State state
+        State state,
+        uint amount
     );
     
     event MarketItemSold(
@@ -58,7 +61,8 @@ contract Market is ReentrancyGuard{
         address seller,
         address buyer,
         uint256 price,
-        State state
+        State state,
+        uint amount
     );
     bytes32 private constant PERMIT_TYPEHASH =
         keccak256("Permit(address owner,address spender,uint tokenId,uint256 nonce,uint256 deadline)");
@@ -74,54 +78,47 @@ contract Market is ReentrancyGuard{
         airdrop = _airdrop;
     }
     // 1. 上架， 上架后要加入事件。
-    function onList(
-        address _contractAddr,
-        uint _tokenID,
-        uint _price
-    ) public payable nonReentrant returns (uint) {
-        // 转过来的钱要大于listFee
-        require(msg.value == listingFee, "Fee must be equal to listing fee");
-        require(_price > 0, "Price must be at least 1 wei ");
-        // approver要为当前的合约
-        // 感觉这里有点问题，没有地方授权的
-        require(
-            IERC721(_contractAddr).getApproved(_tokenID) == address(this),
-            "NFT must be approved to market"
-        );
-        // id
-        _itemCounter.increment();
-        uint256 id = _itemCounter.current();
-        marketItems[id] = MarketItem(
-            id,
-            _contractAddr,
-            _tokenID,
-            _price,
-            msg.sender,
-            payable(address(0)),
-            State.Created
-        );
-        emit MarketItemCreated(
-            id,
-            _contractAddr,
-            _tokenID,
-            _price,
-            msg.sender,
-            address(0),
-            State.Created
-        );
-        return id;
-    }
+       function onList(
+       address _contractAddr,
+       uint _tokenID,
+       uint _price,
+       uint _amount // 新增参数
+   ) public payable nonReentrant returns (uint) {
+       require(msg.value == listingFee, "Fee must be equal to listing fee");
+       require(_price > 0, "Price must be at least 1 wei ");
+       require(_amount > 0, "Amount must be at least 1");
+       getApprove(_contractAddr, _tokenID);
+       _itemCounter.increment();
+       uint256 id = _itemCounter.current();
+       marketItems[id] = MarketItem(
+           id,
+           _contractAddr,
+           _tokenID,
+           _price,
+           msg.sender,
+           payable(address(0)),
+           State.Created,
+           _amount // 设置代币数量
+       );
+       emit MarketItemCreated(
+           id,
+           _contractAddr,
+           _tokenID,
+           _price,
+           msg.sender,
+           address(0),
+           State.Created,
+           _amount
+       );
+       return id;
+   }
     // 2. 下架，
     function unList(uint itemId) public nonReentrant{
         MarketItem storage item = marketItems[itemId];
         require(item.buyer == msg.sender, "must be the owner");
         require(item.state == State.Created, "item must be on market");
         require(itemId <= _itemCounter.current(), "id must <= item count");
-        require(
-            IERC721(item.contractAddr).getApproved(item.tokenID) ==
-                address(this),
-            "NFT must be approved to market"
-        );
+        getApprove(item.contractAddr, item.tokenID);
         // 修改
         item.state == State.Inactive;
         emit MarketItemSold(
@@ -131,7 +128,8 @@ contract Market is ReentrancyGuard{
             item.seller,
             payable(address(0)),
             0,
-            State.Inactive
+            State.Inactive,
+            item.amount
         );
     }
     // 3. 购买
@@ -140,18 +138,35 @@ contract Market is ReentrancyGuard{
 
         require( msg.value == item.price, "money not enough");
         require(item.state == State.Created, "item must be on market");
-        require(
-            IERC721(item.contractAddr).getApproved(item.tokenID) ==
-                address(this),
-            "NFT must be approved to market"
-        );
-        require(IERC721(item.contractAddr).ownerOf(item.tokenID) == item.seller, "Seller is not the owner");
-        // 转账
-        IERC721(item.contractAddr).safeTransferFrom(
-            item.seller,
-            msg.sender,
-            item.tokenID
-        );
+         if (IERC165(item.contractAddr).supportsInterface(type(IERC721).interfaceId)) {
+           require(
+               IERC721(item.contractAddr).getApproved(item.tokenID) == address(this),
+               "NFT must be approved to market"
+           );
+           require(IERC721(item.contractAddr).ownerOf(item.tokenID) == item.seller, "Seller is not the owner");
+           IERC721(item.contractAddr).safeTransferFrom(
+               item.seller,
+               msg.sender,
+               item.tokenID
+           );
+       } else if (IERC165(item.contractAddr).supportsInterface(type(IERC1155).interfaceId)) {
+           require(
+               IERC1155(item.contractAddr).isApprovedForAll(item.seller, address(this)),
+               "NFT must be approved to market"
+           );
+           require(IERC1155(item.contractAddr).balanceOf(item.seller, item.tokenID) >= item.amount, "Seller does not have enough tokens");
+        // 判断是否为Owner
+        //    require(IERC1155(item.contractAddr).ownerOf(item.tokenID, item.amount) == item.seller, "Seller is not the owner");
+           IERC1155(item.contractAddr).safeTransferFrom(
+               item.seller,
+               msg.sender,
+               item.tokenID,
+               item.amount,
+               ""
+           );
+       } else {
+           revert("Unsupported token type");
+       }
         // 把buyer改为购买者
         item.buyer = payable(msg.sender);
         item.state = State.Release;
@@ -172,7 +187,8 @@ contract Market is ReentrancyGuard{
             item.seller,
             item.buyer,
             msg.value,
-            State.Release
+            State.Release,
+            item.amount
         );
     }
 
@@ -278,5 +294,15 @@ contract Market is ReentrancyGuard{
         call[1] = abi.encodeWithSelector(AirdopMerkleNFTMarket(airdrop).claimNFT.selector,
          nftTaker,_merkleProof);
         AirdopMerkleNFTMarket(airdrop).multicall(call);
+    }
+
+    function getApprove(address _contractAddr, uint _tokenID) view internal {
+        if (IERC165(_contractAddr).supportsInterface(type(IERC721).interfaceId)) {
+             require(IERC721(_contractAddr).getApproved(_tokenID) == address(this), "NFT must be approved to market");
+        } else if (IERC165(_contractAddr).supportsInterface(type(IERC1155).interfaceId)) {
+             require(IERC1155(_contractAddr).isApprovedForAll(msg.sender, address(this)), "NFT must be approved to market");
+        } else {
+           revert("Unsupported token type");
+       }
     }
 }
