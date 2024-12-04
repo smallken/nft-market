@@ -14,6 +14,9 @@ let users = [
   ];
 
 //   const leafNodes = users.map( addr => keccak256(addr));
+// 这里是把leafNodes的值，map遍历出来，然后再每个转为keccak256的值
+// encode后面是“address”，所以是address的类型,addr是实际的值
+// 这样就生成了一个leafNodes256位的哈希数组，作用是防止篡改。
   const leafNodes = 
   users.map(addr => 
     keccak256(ethers.utils.defaultAbiCoder.encode(["address"], [addr])));

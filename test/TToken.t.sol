@@ -37,6 +37,14 @@ contract TestTToken is Test, PermitSignature{
         sigUtils = new SigUtils(signatureTransfer.DOMAIN_SEPARATOR());
         permit2 = new Permit2();
         DOMAIN_SEPARATOR = permit2.DOMAIN_SEPARATOR();
+        setERC20TestTokenApprovals(owner, address(permit2));
+    }
+
+    function setERC20TestTokenApprovals(address _owner, address _spender) public {
+        vm.startPrank(_owner);
+        token.approve(_spender, type(uint256).max);
+        // token1.approve(spender, type(uint256).max);
+        vm.stopPrank();
     }
 
     function test_permit() public {
